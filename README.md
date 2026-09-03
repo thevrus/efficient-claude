@@ -14,6 +14,52 @@ npx skills add thevrus/efficient-claude
 
 Works with Claude Code, Codex, Cursor, OpenCode and every other agent the `skills` CLI supports. Add `-g` to install globally.
 
+## How it works
+
+Claude Code loads a skill's `SKILL.md` into context when its description matches what you asked for, or when you invoke it by name with `/efficient-claude`. Once loaded, it changes one decision the agent makes constantly: which `model` and `effort` to pass when it spawns a subagent with the `Agent` tool.
+
+Without the skill, an omitted `model` inherits the session model, so a Fable or Opus session runs every grep and every file rename on the most expensive model. With the skill:
+
+1. Every delegated task is classified into a tier: Scan, Build, Reason, Frontier, Fallback, Visual.
+2. The tier fixes the model and effort. Scan is `haiku` low, Build is `sonnet` medium, Reason is `fable` low, and so on.
+3. The agent states the route in one line before dispatching, so you can audit it: "Routing to scan/haiku: pure grep, spec fully determines output."
+4. On a miss it escalates one dial at a time. Wrong despite having the files: move up one model tier. Skipped a file or did not run tests: raise effort one notch, keep the model. Never both at once.
+5. The prompt it writes for the subagent follows a handoff-packet template: objective, scope, evidence format, verification steps, stop conditions. A tight spec is what keeps a Sonnet task from needing Opus.
+
+The optional `agents/` definitions make the routing mechanical: each agent has `model` and `effort` pinned in its frontmatter, so `Agent(subagent_type: "scan")` is always Haiku at low effort regardless of the session model.
+
+## How to use it
+
+Install once:
+
+```bash
+npx skills add thevrus/efficient-claude -g
+```
+
+Then work normally. The skill applies itself whenever Claude Code is about to delegate. To apply it explicitly to a task:
+
+```
+/efficient-claude refactor the auth module, use subagents for the file scan and the tests
+```
+
+What you should see: a one-line route per delegation, cheap models on lookups, Sonnet on implementation, Fable or Opus only where judgment is needed, and an explicit reason each time it escalates.
+
+For the mechanical version, copy the agent definitions and set the safety net:
+
+```bash
+cp -R ~/.claude/skills/efficient-claude/agents/* ~/.claude/agents/
+```
+
+In `~/.claude/settings.json`:
+
+```json
+{ "env": { "CLAUDE_CODE_SUBAGENT_MODEL": "sonnet" } }
+```
+
+Now `scan`, `Explore`, `build`, `reason` and `frontier-review` show up as `subagent_type` options with their tier pre-set, and any subagent the skill did not route falls back to Sonnet instead of the session model.
+
+Session-level habits the skill also nudges: set `/model` and `/effort` once at session start (switching mid-session drops the prompt cache), `/clear` between unrelated tasks, `/rewind` instead of `/compact` to undo a bad turn.
+
 ## What you get
 
 `skills/efficient-claude/SKILL.md` covers:
@@ -36,15 +82,7 @@ Works with Claude Code, Codex, Cursor, OpenCode and every other agent the `skill
 | `reason` | fable | low | root cause, refactor design, tradeoffs |
 | `frontier-review` | fable | medium | final clean-context review before shipping risky changes |
 
-Copy them into `~/.claude/agents/` (global) or `.claude/agents/` (project) to use them from the `Agent` tool. The `skills` CLI does not register agents automatically.
-
-Also recommended in `~/.claude/settings.json`:
-
-```json
-{ "env": { "CLAUDE_CODE_SUBAGENT_MODEL": "sonnet" } }
-```
-
-so an unrouted subagent never inherits an expensive session model.
+The `skills` CLI installs the skill only; it does not register agents. Copy them into `~/.claude/agents/` (global) or `.claude/agents/` (project) as shown above.
 
 ## Why
 
