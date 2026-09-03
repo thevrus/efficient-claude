@@ -64,11 +64,13 @@ Session-level habits the skill also nudges: set `/model` and `/effort` once at s
 
 `skills/efficient-claude/SKILL.md` covers:
 
-- A routing table: Scan / Build / Reason / Frontier / Fallback / Visual tiers with the model and effort for each.
+- A routing table: Scan / Build / Reason / Frontier / Fallback / Visual tiers with the model, effort and `maxTurns` cap for each.
 - An escalation rule that moves one dial at a time: model when it did not know enough, effort when it did not try hard enough.
-- Fable-specific budgeting rules for subscription plans.
-- Claude Code mapping: per-invocation `model`, agent `effort` frontmatter, resolution order, `CLAUDE_CODE_SUBAGENT_MODEL` safety net.
+- Fable budgeting rules for subscription plans (the documented 50% weekly cap).
+- Claude Code mechanics: model resolution order, aliases including `default` per plan, effort values, `Explore` override, `CLAUDE_CODE_SUBAGENT_MODEL` and `_FORCE`, useful agent frontmatter (`maxTurns`, `isolation`, `skills`, `tools`).
 - Session hygiene, delegation rules, and a handoff-packet template for subagent prompts.
+
+`skills/efficient-claude/references/rationale.md` holds the numbers behind the table, split into Anthropic-documented facts (with URLs) and third-party reports to re-verify after each model release. It is loaded only on demand.
 
 ## Optional: pre-routed Claude Code agents
 
