@@ -21,7 +21,7 @@ Works with Claude Code, Codex, Cursor, OpenCode and every other agent the `skill
 - A routing table: Scan / Build / Reason / Frontier / Fallback / Visual tiers with the model and effort for each.
 - An escalation rule that moves one dial at a time: model when it did not know enough, effort when it did not try hard enough.
 - Fable-specific budgeting rules for subscription plans.
-- Mappings for Aside (`model_category`) and Claude Code (`model` + agent `effort` frontmatter).
+- Claude Code mapping: per-invocation `model`, agent `effort` frontmatter, resolution order, `CLAUDE_CODE_SUBAGENT_MODEL` safety net.
 - Session hygiene, delegation rules, and a handoff-packet template for subagent prompts.
 
 ## Optional: pre-routed Claude Code agents

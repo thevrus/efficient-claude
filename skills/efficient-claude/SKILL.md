@@ -1,6 +1,6 @@
 ---
 name: "efficient-claude"
-description: "Use whenever spawning a subagent, creating a routine, or choosing model/effort for a delegated task in Aside or Claude Code. Routes each task to the cheapest Claude model and effort level that can still do it right; escalates only on evidence. Companion to efficient-fable (which says WHAT to delegate; this says WHICH model)."
+description: "Use whenever spawning a subagent, creating a routine, or choosing model/effort for a delegated task in Claude Code. Routes each task to the cheapest Claude model and effort level that can still do it right; escalates only on evidence. Companion to efficient-fable (which says WHAT to delegate; this says WHICH model)."
 ---
 
 # Efficient Claude
@@ -12,16 +12,16 @@ failure. Never pre-emptively "use the big one just in case."
 
 ## Routing table
 
-| Tier | Aside `model_category` | Claude Code `model` | Effort | Route here when |
-| --- | --- | --- | --- | --- |
-| Scan | `fast` | `haiku` | low | Grep/search, file inventory, log reduction, list extraction, "does X exist", summarizing one page, formatting, renames. Outcome fully determined by the instruction. |
-| Build | `standard` | `sonnet` | medium | Bounded edits from a clear spec, writing tests, running/reporting test output, browser flows with known steps, drafting from a template, data transforms. |
-| Reason | `deep` | `fable` | **low** | Ambiguous scope, multi-file refactor, root-cause debugging, comparing conflicting reports, architecture/tradeoff decisions, anything with security or money consequences. |
-| Frontier | (top-level session only) | `fable` | medium | Only after Fable low failed with full context, or a multi-hour autonomous run. Never xhigh/max: 8-11x the tokens of low, 1.5x quota burn. |
-| Fallback | `deep` | `opus` | medium | When the Fable weekly cap (~50% of plan quota) is hit, or via `opusplan` (Opus plans, Sonnet executes). |
-| Visual | `visual` | (inherit) | default | Reading screenshots, charts, UI diffs, image-heavy pages. |
+| Tier | `model` | Effort | Route here when |
+| --- | --- | --- | --- |
+| Scan | `haiku` | low | Grep/search, file inventory, log reduction, list extraction, "does X exist", summarizing one page, formatting, renames. Outcome fully determined by the instruction. |
+| Build | `sonnet` | medium | Bounded edits from a clear spec, writing tests, running/reporting test output, browser flows with known steps, drafting from a template, data transforms. |
+| Reason | `fable` | **low** | Ambiguous scope, multi-file refactor, root-cause debugging, comparing conflicting reports, architecture/tradeoff decisions, anything with security or money consequences. |
+| Frontier | `fable` | medium | Top-level session only. After Fable low failed with full context, or a multi-hour autonomous run. Never xhigh/max: 8-11x the tokens of low, 1.5x quota burn. |
+| Fallback | `opus` | medium | When the Fable weekly cap (~50% of plan quota) is hit, or via `opusplan` (Opus plans, Sonnet executes). |
+| Visual | (inherit) | default | Reading screenshots, charts, UI diffs, image-heavy pages. |
 
-Defaults when unsure: `standard` / `sonnet` at **medium** effort. Raise to high only
+Defaults when unsure: `sonnet` at **medium** effort. Raise to high only
 after it visibly under-tried.
 "Execute this plan" tasks go to Build/`sonnet` even when Opus wrote the plan;
 several practitioners find Sonnet beats Opus there on quality, cost, and speed. Drop to Scan
@@ -80,19 +80,13 @@ Never bump both model and effort at once; you learn nothing about what worked.
 - If the account has no Fable access, `opus` takes the Frontier role and
   `sonnet` takes Reason. Same table, shifted down.
 
-## Aside mapping
+## Claude Code mapping
 
-- `subagent` tool: set `model_category` per the table. `inherit` only for
-  `fork_self` where the parent is already the right tier.
-- `routine_update` (cron): set `modelCategory`. Monitors and daily digests are
-  `fast`; anything that drafts a message for the user or touches money is
-  `standard`; research routines with judgment calls are `deep`.
-- `context_explorer` and `code_explorer` profiles are already `fast`. Don't
-  override upward; give them a narrower question instead.
+- Scheduled routines (cron): monitors and daily digests are Scan; anything
+  that drafts a message for the user or touches money is Build; research
+  routines with judgment calls are Reason.
 - Browser work that only needs snapshots/clicking on a known flow is Build
   tier. Anything that must interpret a page it has never seen is Reason tier.
-
-## Claude Code mapping
 
 - Per-invocation: pass `model` and rely on the subagent's `effort` frontmatter.
   Resolution order: per-invocation `model` > agent frontmatter > 
