@@ -58,6 +58,24 @@ In `~/.claude/settings.json`:
 
 Now `scan`, `Explore`, `build`, `reason` and `frontier-review` show up as `subagent_type` options with their tier pre-set, and any subagent the skill did not route falls back to Sonnet instead of the session model.
 
+To make the rule a hard guarantee instead of advice, add the PreToolUse hook. It blocks any `Agent` call that neither passes `model` nor names one of the pinned agents, and tells Claude which model to pass:
+
+```bash
+mkdir -p ~/.claude/hooks && cp hooks/require-model.py ~/.claude/hooks/
+```
+
+In `~/.claude/settings.json`:
+
+```json
+{
+  "hooks": {
+    "PreToolUse": [
+      { "matcher": "Agent", "hooks": [{ "type": "command", "command": "python3 ~/.claude/hooks/require-model.py" }] }
+    ]
+  }
+}
+```
+
 Session-level habits the skill also nudges: set `/model` and `/effort` once at session start (switching mid-session drops the prompt cache), `/clear` between unrelated tasks, `/rewind` instead of `/compact` to undo a bad turn.
 
 ## What you get
@@ -68,7 +86,10 @@ Session-level habits the skill also nudges: set `/model` and `/effort` once at s
 - An escalation rule that moves one dial at a time: model when it did not know enough, effort when it did not try hard enough.
 - Frontier rules for Fable: the documented 50% weekly cap on Max and premium seats, usage-credits-only on Pro and standard seats, and when Opus 5.5 is the better buy.
 - Claude Code mechanics: model resolution order, aliases including `default` per plan, effort values, `Explore` override, `CLAUDE_CODE_SUBAGENT_MODEL` and `_FORCE`, useful agent frontmatter (`maxTurns`, `isolation`, `skills`, `tools`).
-- Session hygiene, delegation rules, and a handoff-packet template for subagent prompts.
+- A stakes override: the cases that go straight to Fable (deliverables, no pattern to follow, unsupervised runs, coordination, security or money, "do it right"), and the tripwires that promote a task mid-flight.
+- A quality gate: every deliverable gets a read-only verdict pass one tier above the worker, by an agent that never saw the build.
+- Session hygiene, delegation rules (routing plan and fan-out cap, ledger for long runs), a handoff-packet template with a fixed return schema, a table of rationalizations to refuse, and a self-audit checklist.
+- `hooks/require-model.py`: a PreToolUse hook that refuses an `Agent` call with no explicit model.
 
 `skills/efficient-claude/references/rationale.md` holds the numbers behind the table, split into Anthropic-documented facts (with URLs) and third-party reports to re-verify after each model release. It is loaded only on demand.
 
@@ -78,8 +99,8 @@ Session-level habits the skill also nudges: set `/model` and `/effort` once at s
 
 | Agent | Model | Effort | Use |
 | --- | --- | --- | --- |
-| `scan` | haiku | low | grep, inventory, find-where |
-| `Explore` | haiku | low | overrides the built-in Explore so it stops inheriting the session model |
+| `scan` | haiku | - (Haiku has no effort dial) | grep, inventory, find-where |
+| `Explore` | haiku | - | overrides the built-in Explore so it stops inheriting the session model |
 | `build` | sonnet | default | bounded edits from a clear spec |
 | `reason` | opus | medium | root cause, refactor design, tradeoffs |
 | `frontier-review` | fable | medium | final clean-context review before shipping risky changes |

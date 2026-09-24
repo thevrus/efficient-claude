@@ -2,7 +2,6 @@
 name: scan
 description: Cheap read-only scan. Grep, inventory, find-where, summarize one file, reduce logs. Use when the instruction fully determines the answer.
 model: haiku
-effort: low
 maxTurns: 10
 tools: Read, Grep, Glob, Bash
 ---

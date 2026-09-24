@@ -2,7 +2,6 @@
 name: Explore
 description: Override of the built-in Explore so codebase exploration always runs on Haiku instead of inheriting an expensive session model.
 model: haiku
-effort: low
 maxTurns: 10
 tools: Read, Grep, Glob, Bash
 ---
