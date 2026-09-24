@@ -2,7 +2,7 @@
 
 An agent skill that routes every delegated task to the cheapest Claude model and effort level that can still do it right, and escalates only on evidence.
 
-Default: Sonnet at medium. Scan work drops to Haiku. Judgment work goes to Fable at low effort. Fable high/max is a budgeted consult, not a default.
+Default: Sonnet at medium for anything with a spec, Opus 5.5 at medium for anything without one. Scan work drops to Haiku. Fable is the frontier row only: after Opus at high fails twice, or for long unsupervised runs.
 
 [![skills.sh](https://skills.sh/b/thevrus/efficient-claude)](https://skills.sh/thevrus/efficient-claude)
 
@@ -21,7 +21,7 @@ Claude Code loads a skill's `SKILL.md` into context when its description matches
 Without the skill, an omitted `model` inherits the session model, so a Fable or Opus session runs every grep and every file rename on the most expensive model. With the skill:
 
 1. Every delegated task is classified into a tier: Scan, Build, Reason, Frontier, Fallback, Visual.
-2. The tier fixes the model and effort. Scan is `haiku` low, Build is `sonnet` medium, Reason is `fable` low, and so on.
+2. The tier fixes the model and effort. Scan is `haiku` low, Build is `sonnet` medium, Reason is `opus` (5.5) medium, Frontier is `fable` low.
 3. The agent states the route in one line before dispatching, so you can audit it: "Routing to scan/haiku: pure grep, spec fully determines output."
 4. On a miss it escalates one dial at a time. Wrong despite having the files: move up one model tier. Skipped a file or did not run tests: raise effort one notch, keep the model. Never both at once.
 5. The prompt it writes for the subagent follows a handoff-packet template: objective, scope, evidence format, verification steps, stop conditions. A tight spec is what keeps a Sonnet task from needing Opus.
@@ -42,7 +42,7 @@ Then work normally. The skill applies itself whenever Claude Code is about to de
 /efficient-claude refactor the auth module, use subagents for the file scan and the tests
 ```
 
-What you should see: a one-line route per delegation, cheap models on lookups, Sonnet on implementation, Fable or Opus only where judgment is needed, and an explicit reason each time it escalates.
+What you should see: a one-line route per delegation, cheap models on lookups, Sonnet on spec-driven implementation, Opus 5.5 where judgment is needed, Fable only at the frontier, and an explicit reason each time it escalates.
 
 For the mechanical version, copy the agent definitions and set the safety net:
 
@@ -66,7 +66,7 @@ Session-level habits the skill also nudges: set `/model` and `/effort` once at s
 
 - A routing table: Scan / Build / Reason / Frontier / Fallback / Visual tiers with the model, effort and `maxTurns` cap for each.
 - An escalation rule that moves one dial at a time: model when it did not know enough, effort when it did not try hard enough.
-- Fable budgeting rules for subscription plans (the documented 50% weekly cap).
+- Frontier rules for Fable: the documented 50% weekly cap on Max and premium seats, usage-credits-only on Pro and standard seats, and when Opus 5.5 is the better buy.
 - Claude Code mechanics: model resolution order, aliases including `default` per plan, effort values, `Explore` override, `CLAUDE_CODE_SUBAGENT_MODEL` and `_FORCE`, useful agent frontmatter (`maxTurns`, `isolation`, `skills`, `tools`).
 - Session hygiene, delegation rules, and a handoff-packet template for subagent prompts.
 
@@ -81,14 +81,14 @@ Session-level habits the skill also nudges: set `/model` and `/effort` once at s
 | `scan` | haiku | low | grep, inventory, find-where |
 | `Explore` | haiku | low | overrides the built-in Explore so it stops inheriting the session model |
 | `build` | sonnet | default | bounded edits from a clear spec |
-| `reason` | fable | low | root cause, refactor design, tradeoffs |
+| `reason` | opus | medium | root cause, refactor design, tradeoffs |
 | `frontier-review` | fable | medium | final clean-context review before shipping risky changes |
 
 The `skills` CLI installs the skill only; it does not register agents. Copy them into `~/.claude/agents/` (global) or `.claude/agents/` (project) as shown above.
 
 ## Why
 
-Effort moves cost more than model choice: Fable 5.1 spans roughly 11x output tokens from low to max, Opus about 8x, while model price gaps are 2.5-5x. Most "Fable burned my limits" reports come from running high or max by default. The skill encodes the measured routing so the agent starts at the floor.
+Effort moves cost more than model choice: Fable 5.1 spans roughly 11x output tokens from low to max, Opus about 8x, while model price gaps are 2.5-5x. Since Opus 5.5 (September 2026) matches Fable 5.1 on most work at 40% of the output price and is the default on every plan, the expensive mistake is no longer "used Fable by accident" but "ran everything at high". The skill encodes the measured routing so the agent starts at the floor.
 
 Model behavior shifts between releases. Keep a handful of personal tasks you know the answer to, re-run them when a model ships, and re-rank the table from that.
 

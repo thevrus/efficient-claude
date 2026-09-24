@@ -1,6 +1,6 @@
 ---
 name: frontier-review
-description: Final clean-context review by Fable before shipping a risky change, or a consult when Opus was confidently wrong with full context. Budgeted; use sparingly.
+description: Final clean-context review by Fable before shipping a risky change, or a consult after Opus at high was confidently wrong twice with full context. Budgeted; use sparingly.
 model: fable
 effort: medium
 tools: Read, Grep, Glob, Bash
