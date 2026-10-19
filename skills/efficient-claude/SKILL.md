@@ -4,7 +4,7 @@ description: "Use whenever spawning a subagent, creating a routine, or choosing 
 license: MIT
 metadata:
   author: thevrus
-  version: "1.2"
+  version: "1.3"
 ---
 
 # Efficient Claude
@@ -20,19 +20,20 @@ Rationale and the measurements behind the table live in
 [references/rationale.md](references/rationale.md). Load it only when someone
 asks why, or when re-ranking after a model release.
 
-## Routing table (Claude Code v2.1.280+, Opus 5.5 generation)
+## Routing table (Claude Code v2.1.303+, Opus 5.5 / Sonnet 5.5 / Haiku 5.5)
 
 | Tier | `model` | Effort | `maxTurns` | Route here when |
 | --- | --- | --- | --- | --- |
-| Scan | `haiku` | low | 10 | Grep/search, file inventory, log and test-output reduction, "where is X defined", one-page summaries, formatting, renames. Outcome fully determined by the instruction and a mistake is cheap to spot. |
+| Scan | `haiku` | low | 10 | Grep/search, file inventory, log and test-output reduction, "where is X defined", one-page summaries, formatting, renames. Outcome fully determined by the instruction and a mistake is cheap to spot. Keep the agent under 100K tokens of context: above that Haiku 5.5 costs 5x. |
 | Build | `sonnet` | medium | 40 | Bounded edits from a clear spec, tests from an existing pattern, data transforms, drafting from a template, browser flows with known steps. |
 | Reason | `opus` | medium | 40 | Ambiguous scope, multi-file refactor, root-cause debugging, code review with follow-up edits, reconciling conflicting reports, anything with security or money consequences. |
-| Frontier | `fable` | low, then medium | - | Any stakes-override case below (the deliverable itself, no pattern to follow, unsupervised runs, coordination, security or money), or after `opus` at high hit the same problem twice. Never xhigh/max. |
+| Frontier | `fable` | low, then medium | - | Any stakes-override case below (the deliverable itself, no pattern to follow, unsupervised runs with no verifier, coordination, security or money), or after `opus` at high hit the same problem twice. Never xhigh/max. |
 | Fallback | `sonnet` | high | 40 | "You've hit your Opus limit": Reason-tier work continues on Sonnet at high until the reset. |
 | Visual | (inherit) | default | 20 | Reading screenshots, charts, UI diffs, image-heavy pages. |
 
-`opus` is Opus 5.5. Its default effort is medium; every other model defaults
-to high. Three models cover a day: Haiku for lookups, Opus for the work you
+On the Anthropic API `opus` is Opus 5.5, `sonnet` Sonnet 5.5, `haiku` Haiku
+5.5; all three default to medium effort (Opus 4.7 to xhigh, the rest to
+high). Three models cover a day: Haiku for lookups, Opus for the work you
 supervise, Fable for the rare task the others cannot finish.
 
 Defaults when unsure: `sonnet` medium for anything with a spec, `opus` medium
@@ -60,9 +61,14 @@ of these hold. A retry here costs more than the model ever will.
   expensive to redo. One shot at the right answer beats three cheap tries.
 - **No pattern to follow.** Novel problem, ambiguous requirements that need
   taste, or a design with real tradeoffs and no precedent in the codebase.
-- **Unsupervised runs.** Anything that runs for more than an hour without you
-  reading along, overnight jobs, autonomous loops. Fable finishes jobs the
-  others stall on, and nobody is there to catch the stall.
+- **Unsupervised runs with no verifier.** Anything that runs for more than an
+  hour without you reading along and without a test suite or script that
+  fails loudly: overnight jobs, autonomous loops, open-ended research. Fable
+  finishes jobs the others stall on, and nobody is there to catch the stall.
+  A long run that does have a failable check (a port against an existing
+  test suite, a migration with a diff check) runs on `opus` medium: on
+  Anthropic's HAProxy C-to-Rust rewrite Opus 5.5 finished in 9.5 hours to
+  Fable 5.1's 12, at 51% less cost. Promote it to Fable if it stalls.
 - **Coordination.** One change that spans many repos or subagents; Fable as
   the planner and integrator, cheaper tiers as the hands.
 - **Adversarial or high-consequence judgment.** Security review, money
@@ -138,8 +144,8 @@ Rules for all three:
   change or a problem that survived low. `xhigh` and `max` overthink and cost
   8-11x the tokens of low; use them only on a stuck problem with full
   context, for one turn.
-- Fable and Opus 5.5 keep the prompt cache across effort changes on an API key
-  or subscription, so raise effort for one hard step and drop it again.
+- Fable 5.1 and the 5.5 models keep the prompt cache across effort changes on
+  an API key or subscription, so raise effort for one hard step and drop it again.
 - Plans: on Max, Team Premium and Enterprise premium seats, Fable draws from
   the same weekly limit and may use at most 50% of it. On Pro, Team Standard
   and Enterprise standard seats, Fable is not included at all and bills
@@ -152,7 +158,10 @@ Rules for all three:
 
 ## Claude Code mechanics
 
-- Always pass `model` when dispatching. Resolution order (v2.1.251+):
+- Always pass `model` and `effort` when dispatching; the Agent tool takes a
+  per-call `effort` from v2.1.292 (it overrides frontmatter, persists across
+  resumes, and loses only to `CLAUDE_CODE_EFFORT_LEVEL`). Model resolution
+  order (v2.1.251+):
   per-invocation `model` > agent frontmatter `model` >
   `CLAUDE_CODE_SUBAGENT_MODEL` env > session model. Before v2.1.251 the env var
   came first and overrode everything.
@@ -164,20 +173,36 @@ Rules for all three:
   `fable` (Fable 5.1), `best` (Fable if available, else Opus), `opusplan`,
   `default`. Pin full IDs such as `claude-opus-5-5` only when reproducibility
   matters. Run `claude update` if `opus` still resolves to Opus 5.
+- Aliases resolve per provider. Bedrock and Vertex: `sonnet` is Sonnet 4.5,
+  `haiku` Haiku 4.5. Foundry: `opus` is Opus 4.6, `sonnet` Sonnet 4.5,
+  `haiku` Haiku 4.5. Claude Platform on AWS: `sonnet` is Sonnet 4.6. The
+  Build and Fallback rows are a weaker model there; check before trusting them.
 - Effort values: `low`, `medium`, `high`, `xhigh`, `max` on Fable 5.1/5, Opus
-  5.5/5/4.8/4.7, Sonnet 5. Levels are calibrated per model, so `medium` on
-  Opus 5.5 is not `medium` on Sonnet 5. Effort in agent frontmatter overrides
-  the session `/effort` while that agent runs, but not the effort env var. A
-  top-level `effortLevel` saved before v2.1.280 does not apply to Opus 5.5.
-- Thinking is always on for Opus 5.5 and the Fable models; effort is the only
-  dial. Haiku 4.5 has no effort dial at all; do not set `effort` on a Haiku
-  agent.
-- Built-in `Explore` inherits the session model (capped at Opus) since
-  v2.1.198. A user or project agent named `Explore` replaces it and keeps its
-  own `model`; define one with `model: haiku`, `effort: low`.
+  5.5/5/4.8/4.7, Sonnet 5.5/5, Haiku 5.5. Opus 4.6 and Sonnet 4.6 take only
+  low, medium, high, max; an unsupported level falls back to the highest
+  supported one below it. Levels are calibrated per model, so `medium` on
+  Opus 5.5 is not `medium` on Sonnet 5.5. Effort in agent frontmatter
+  overrides the session `/effort` while that agent runs, but not
+  `CLAUDE_CODE_EFFORT_LEVEL`. A top-level `effortLevel` in user settings does
+  not count for Opus 5.5; set per-model levels under `modelSettings`. `max`
+  is not a valid `effortLevel`.
+- Thinking is always on for Opus 5.5, Sonnet 5.5, Haiku 5.5 and the Fable
+  models; effort is the only dial. Haiku 4.5 (still the `haiku` target on
+  Bedrock, Vertex and Foundry) has no effort dial; do not set `effort` on a
+  Haiku agent there, and drop `effort: low` from the bundled `scan` and
+  `Explore` agents on those providers.
+- Built-in `Explore` runs on the session model. Only when the session is on
+  Fable, and only on a subscription, Console account or `ANTHROPIC_BASE_URL`
+  gateway, does it drop to the `opus` alias; on Bedrock, Vertex and Foundry it
+  stays on Fable. A user or project agent named `Explore` replaces it and
+  keeps its own `model`; define one with `model: haiku`, `effort: low`.
+- Workflow agents inherit the session model unless told otherwise. Set
+  `CLAUDE_CODE_WORKFLOW_SUBAGENT_MODEL=sonnet` (v2.1.296+), or plan on Fable,
+  then `/model sonnet` before launching the build. Start a dynamic workflow on
+  a scoped task; they fan out fast.
 - Safety nets: `CLAUDE_CODE_SUBAGENT_MODEL=sonnet` catches subagents with no
-  model set. `CLAUDE_CODE_SUBAGENT_MODEL_FORCE=1` pins every subagent to it
-  regardless of frontmatter or invocation; use only for a cost-locked session,
+  model set. `CLAUDE_CODE_SUBAGENT_MODEL_FORCE=1` (v2.1.257+) pins every subagent to
+  it regardless of frontmatter or invocation; use only for a cost-locked session,
   since it also flattens the tiers above.
 - Agent frontmatter also takes `maxTurns` (hard cap per dispatch, output comes
   back marked partial and can be resumed), `isolation: worktree` (parallel
@@ -185,7 +210,13 @@ Rules for all three:
   turns discovering them), and `tools` (read-only sets for Scan tier).
 - A fork (`context: fork` skill, or a forked subagent) reuses the parent's
   prompt cache; a fresh subagent pays for its context again. For a task that
-  needs the same context the parent already has, fork.
+  needs the same context the parent already has, fork. Forks are on by
+  default in `-p`, the SDK, desktop and VS Code from v2.1.303
+  (`CLAUDE_CODE_FORK_SUBAGENT=0` turns them off).
+- Subagents get a five-minute cache even on a subscription. A Build agent
+  that waits on tests or long tool calls re-writes its cache every gap; set
+  `subagentPromptCacheTtl: "1h"` (or `CLAUDE_CODE_SUBAGENT_PROMPT_CACHE_TTL`)
+  when its turns are routinely more than five minutes apart.
 - A skill with `model:` in its frontmatter that differs from the session model
   is a model switch for that turn and drops the cache. Put the model on a
   forked agent instead.
@@ -203,13 +234,20 @@ Rules for all three:
 ## Session hygiene
 
 - Pick `/model` once at session start; a model switch reads the whole
-  conversation uncached. Effort can move mid-session on Opus 5.5 and Fable 5.1
-  without a cache miss (API key or subscription; not on Bedrock, Vertex, a
-  gateway, or HIPAA orgs). On every other model an effort change is a cache
-  miss.
+  conversation uncached. Effort can move mid-session on Opus 5.5, Fable 5.1
+  (v2.1.260+), Sonnet 5.5 and Haiku 5.5 without a cache miss (API key or
+  subscription; not on Bedrock, Vertex, a gateway, or HIPAA orgs). On every
+  other model an effort change is a cache miss.
 - The cache lives one hour on a subscription, five minutes on an API key or
-  once usage credits kick in. A six-minute break on the API turns the next
-  cache read into a full cache write. Compact before you step away, not after.
+  once usage credits kick in; pin it with `promptCacheTtl` or
+  `CLAUDE_CODE_PROMPT_CACHE_TTL` (`5m` or `1h`). A six-minute break on the API
+  turns the next cache read into a full cache write.
+- Idle compaction (v2.1.299+, terminal only) compacts a 200K+ token session
+  after about 54 idle minutes, just before the hour-long cache expires, so
+  resuming pays for the summary, not the whole history. Leave it on; tune the
+  threshold with `CLAUDE_CODE_IDLE_COMPACT_MIN_TOKENS`. On the API's
+  five-minute cache it fires too late, so compact by hand before a break
+  there.
 - `/clear` between unrelated tasks; it is free. `/compact` costs about one
   request (roughly $0.25 at 150K context on Opus 5.5) and pays back in about
   ten turns, so never compact right before finishing. `/rewind` truncates to an
@@ -218,8 +256,9 @@ Rules for all three:
   hit your Opus limit" is family-specific; switch to Sonnet or Haiku with
   `/model` and keep working (the switch itself is a cache miss).
 - Fast mode (`/fast`) is Opus-only (5.5, 5, 4.8), up to 2.5x faster at
-  $8/$40 per MTok on Opus 5.5, billed to usage credits on a subscription. Skip
-  it unless latency matters more than money.
+  $8/$40 per MTok on Opus 5.5, billed to usage credits on a subscription and
+  per token on Console; not offered on Bedrock, Vertex, Foundry or Claude
+  Platform on AWS. Skip it unless latency matters more than money.
 - Agent teams run each teammate as a separate Claude instance with its own
   context, roughly 7x the tokens of a normal session. Prefer one level of
   subagents.
@@ -227,10 +266,11 @@ Rules for all three:
   prefer batched dispatches over new inline reads. Over 80%, start nothing
   new: commit verified work, write the handoff, then `/compact` with a note on
   what to keep.
-- After a model release, run `/claude-api prompt-audit` on CLAUDE.md and
-  skills. Instructions written for an older model make the new one write more
-  and repeat tool calls; Anthropic's own migration example cut cost 18% by
-  moving to Opus 5.5 at low and a further 9% by removing stale rituals.
+- After a model release, run `/doctor prompt-audit` (alias `/checkup
+  prompt-audit`) on CLAUDE.md, skills and agents. Instructions written for an
+  older model make the new one write more and repeat tool calls; Anthropic's
+  own migration example cut cost 18% by moving to Opus 5.5 at low and a
+  further 9% by removing stale rituals.
 
 ## Delegation rules
 
@@ -333,7 +373,10 @@ release.
 - At the end of a task, `/usage` shows three tells: cache share should be
   high on a long session; a lot of output on a small change means effort too
   high or a retry loop; total input many times the conversation size means
-  too many turns. Read the transcript to find where the loop repeated.
+  too many turns. Its `Prompt cache (main)` line names the likely cause of
+  each miss, and the breakdown by skill, subagent, plugin and MCP server
+  finds the usual culprits of a spike: a runaway loop or a heavy skill or
+  plugin. Read the transcript to find where the loop repeated.
 - Is Fable spend tracked against the plan? On Max and premium seats the cap
   is 50% of the weekly limit; on Pro and standard seats it bills credits.
 - Re-run the 5-10 personal benchmark tasks; move a tier boundary only when
@@ -341,7 +384,12 @@ release.
 
 ## The table goes stale
 
-Sonnet 5.5 and Haiku 5.5 are announced for the weeks after Opus 5.5; the Build
-and Scan rows will move when they ship. Keep 5-10 personal tasks you know the
-right answer to (one per tier) and re-run them when a model ships. Re-rank
-tiers from that, not from launch-day benchmarks or social sentiment.
+Sonnet 5.5 and Haiku 5.5 have shipped and are now what `sonnet` and `haiku`
+mean on the API. Haiku 5.5 ($0.10/$0.50 up to 100K context) makes Scan about
+10x cheaper on input, and Sonnet 5.5 cache reads ($0.10) are half Opus 5.5's.
+First candidate to re-rank: Sonnet 5.5 at high for read-only review (see the
+rationale); the rows stay until your own tasks agree.
+
+Keep 5-10 personal tasks you know the right answer to (one per tier) and
+re-run them when a model ships. Re-rank tiers from that, not from launch-day
+benchmarks or social sentiment.

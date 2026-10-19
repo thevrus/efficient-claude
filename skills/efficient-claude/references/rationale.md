@@ -1,22 +1,27 @@
 # Why the routing table looks like this
 
-Last checked: 24 September 2026, two days after Opus 5.5 shipped. Two kinds
-of evidence are mixed here and labeled so you know which to trust after the
-next release.
+Last checked: 19 October 2026 (Claude Code v2.1.303), after Sonnet 5.5 (28
+September) and Haiku 5.5 (7 October) shipped. Three kinds of evidence are
+mixed here and labeled so you know which to trust after the next release.
 
 ## Documented by Anthropic
 
 - Pricing per MTok (input / output / cache read): Fable 5.1 $10 / $50 / $0.25;
-  Opus 5.5 $4 / $20 / $0.20; Opus 5 $5 / $25 / $0.50 (legacy); Sonnet 5 $2 /
-  $10 / $0.20; Haiku 4.5 $1 / $5 / $0.10. Cache reads are 2.5% of input on
-  Fable 5.1, 5% on Opus 5.5, 10% elsewhere. Agent sessions are mostly cache
-  reads, which is why Opus 5.5 and Sonnet 5 cost the same per cached token.
+  Opus 5.5 $4 / $20 / $0.20; Opus 5 $5 / $25 / $0.50 (legacy); Sonnet 5.5 $2 /
+  $10 / $0.10 (cache read halved from $0.20 on 7 October 2026); Haiku 5.5 $0.10 /
+  $0.50 / $0.01 up to 100K context, $0.50 / $2.50 / $0.05 above; Sonnet 5
+  $2 / $10 / $0.20; Haiku 4.5 $1 / $5 / $0.10. Cache reads are 2.5% of input
+  on Fable 5.1, 5% on Opus 5.5 and Sonnet 5.5, 10% on the older models. Agent
+  sessions are mostly cache reads, so a cached token on Sonnet 5.5 costs half
+  what it does on Opus 5.5. Batch is 50% off. Haiku 5.5's 100K tier counts
+  cache reads and writes toward prompt length; it is the only current model
+  without flat 1M-context pricing.
   https://platform.claude.com/docs/en/about-claude/pricing
-- Opus 5.5 default effort is `medium`; Fable 5.1, Sonnet 5 and the rest
-  default to `high`. Anthropic's model guide: "start with Claude Opus 5.5 for
-  most workloads. Use Claude Fable 5.1 for demanding reasoning and
-  long-horizon agentic work, or when your evals on Claude Opus 5.5 at higher
-  effort still fall short."
+- Opus 5.5, Sonnet 5.5 and Haiku 5.5 default to `medium` effort; Opus 4.7 to
+  `xhigh`; Fable 5.1 and the rest to `high`. Anthropic's model guide: "start
+  with Claude Opus 5.5 for most workloads. Use Claude Fable 5.1 for demanding
+  reasoning and long-horizon agentic work, or when your evals on Claude Opus
+  5.5 at higher effort still fall short."
   https://platform.claude.com/docs/en/about-claude/models/overview
 - Claude Code effort ladder as Anthropic states it: medium for well-scoped
   daily work, high when medium stalls, low for mechanical edits; "if high
@@ -32,12 +37,24 @@ next release.
 - `default` is Opus 5.5 on Pro, Max, Team, Enterprise, the API, AWS, Bedrock
   and Vertex from v2.1.280 (Pro and Team Standard were Sonnet 5 before).
   `opus` resolves to Opus 5.5 from v2.1.280. Effort levels per model and the
-  per-model saved-effort rule. https://code.claude.com/docs/en/model-config
+  per-model saved-effort rule. No Fable model is the default anywhere.
+  https://code.claude.com/docs/en/model-config
 - Effort changes keep the cache on Opus 5.5 and Fable 5.1 with an API key or
-  subscription (v2.1.260+ for Fable); a model switch never does. Forks reuse
+  subscription (v2.1.260+ for Fable), and on Sonnet 5.5 and Haiku 5.5; a
+  model switch never does. Forks reuse
   the parent's cache; fresh subagents do not. Cache lifetime is one hour on a
-  subscription, five minutes on the API or on usage credits.
+  subscription, five minutes on the API or on usage credits, and five minutes
+  for subagents even on a subscription unless `subagentPromptCacheTtl` is set.
+  Both are settable (`promptCacheTtl`, v2.1.242+). Idle compaction compacts a
+  200K+ token session idle about 54 minutes (changelog v2.1.299; the caching
+  page says the setting needs v2.1.290+).
   https://code.claude.com/docs/en/prompt-caching
+- Claude Code v2.1.281-2.1.303: Sonnet 5.5 (2.1.284), per-call Agent `effort`
+  (2.1.292), Haiku 5.5 (2.1.293), `autoCompactWindow` frontmatter and
+  `CLAUDE_CODE_WORKFLOW_SUBAGENT_MODEL` (2.1.296), idle compaction (2.1.299),
+  `fable`/`best` falling back once to the previous Fable (2.1.301), forks on by
+  default outside the terminal (2.1.303).
+  https://github.com/anthropics/claude-code/blob/main/CHANGELOG.md
 - Fable on plans: up to 50% of the weekly limit on Max, Team Premium and
   Enterprise premium seats, drawn from the same limit. Not included on Pro,
   Team Standard or Enterprise standard seats; usage credits only. The Fable 5
@@ -45,8 +62,9 @@ next release.
   https://support.claude.com/en/articles/15424964-claude-fable-models-on-your-plan
 - "You've hit your Opus limit" is a family-specific limit; session and weekly
   limits are shared across models. https://code.claude.com/docs/en/errors
-- Subagent model resolution order, `CLAUDE_CODE_SUBAGENT_MODEL_FORCE`, Explore
-  inheriting the session model since v2.1.198, frontmatter `effort` overriding
+- Subagent model resolution order, `CLAUDE_CODE_SUBAGENT_MODEL_FORCE`
+  (v2.1.257+), Explore running on the session model (dropped to `opus` only
+  under a Fable session on subscription/Console), frontmatter `effort` overriding
   session effort, `maxTurns` partial output.
   https://code.claude.com/docs/en/sub-agents
 - Fast mode: Opus 5.5 at $8 / $40, up to 2.5x faster, usage credits only on a
@@ -67,10 +85,41 @@ next release.
   finance bench with ~60% fewer output tokens; Optiver saw Opus 5 quality in
   about half the turns and tokens.
 - Migration example: Opus 4.8 default effort to Opus 5.5 at low cut a
-  44-ticket support benchmark 18%; `/claude-api prompt-audit` cut a further
-  9%. https://claude.com/blog/what-a-task-costs-on-opus-5-5
+  44-ticket support benchmark 18%; `/claude-api prompt-audit` (now `/doctor
+  prompt-audit`, alias `/checkup`) cut a further 9%.
+  https://claude.com/blog/what-a-task-costs-on-opus-5-5
+- Sonnet 5.5: "over 30% faster, up to 30% cheaper" than Sonnet 5, about 30%
+  more tasks done in Claude Code. Haiku 5.5: about 75% cheaper than Haiku 4.5
+  (Anthropic's blended figure; list input price is 10x lower).
+  https://www.anthropic.com/news (28 September, 7 October 2026)
 
-## Third-party and practitioner reports (pre-Opus 5.5, re-verify)
+## Claude Code team on X (official accounts, 20 Sept - 19 Oct 2026)
+
+- Boris Cherny: medium for most work, low for speed, xhigh for more thinking.
+  https://x.com/bcherny/status/2102541628154286553
+- Thariq: low when staying in the loop; max only for zero-input runs or
+  security hunting, where burning tokens is the point.
+  https://x.com/trq212/status/2103577115010687067
+- Lydia Hallie: per-subagent effort; a subagent whose cache expires re-caches
+  only its own small context. Haiku 5.5 under Opus or Sonnet for summaries
+  and queries, kept under 100K tokens.
+  https://x.com/lydiahallie/status/2107625236430798909
+- Usage spikes are "most often a runaway loop or really inefficient skill";
+  `/usage` shows which. https://x.com/bcherny/status/2106864506894970959
+- Workflow build agents inherit the session model: plan on Fable, then `/model
+  sonnet` before the workflow.
+  https://x.com/adocomplete/status/2111265014829224106
+
+## Third-party and practitioner reports (re-verify)
+
+- Sonnet 5.5 at xhigh matched Opus 5.5 at xhigh on 105 seeded bugs (36
+  found each) for $19.85 vs $34.98. One run, one author.
+  https://x.com/PawelHuryn/status/2108090906381328482
+- One user measured 14% of a five-hour window spent resuming a long Opus 5.5
+  medium session; idle compaction targets exactly this. n=1.
+  https://x.com/Im_IrushiK/status/2110733197462151650
+
+Pre-Opus 5.5:
 
 - Effort moves cost more than model choice: Fable 5.1 spans roughly 11x output
   tokens from low to max, Opus 5 about 8x, while model price gaps are 2.5-5x.
@@ -94,10 +143,18 @@ billed to credits, and defaults to medium. Fable keeps the Frontier row for
 the cases Anthropic itself names: unsupervised long runs, no pattern in the
 codebase, many coordinated subagents, or Opus at high failing twice.
 
+## Why unsupervised runs with a verifier moved to Opus
+
+The HAProxy rewrite above is a long unsupervised run against an existing
+test suite, and Opus 5.5 at medium beat Fable 5.1 on time and cost.
+Anthropic's model guide still names "long-horizon agentic work" for Fable,
+so the override keeps Fable for long runs with nothing to fail loudly, and
+promotes a verified run only after it stalls.
+
 ## How to re-rank
 
 Keep 5-10 tasks you know the right answer to, one per tier. When a model
 ships, run each at the tier the table prescribes and one tier below. Move the
 tier boundary only when the cheaper run fails the same way twice. Sonnet 5.5
-and Haiku 5.5 are due within weeks of Opus 5.5; the Build and Scan rows are
-the next to move.
+and Haiku 5.5 have shipped and are not yet re-ranked here; Sonnet 5.5 at
+high for read-only review is the first candidate to test.
