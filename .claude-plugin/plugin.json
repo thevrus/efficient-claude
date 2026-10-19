@@ -10,11 +10,17 @@
   "repository": "https://github.com/thevrus/efficient-claude",
   "license": "MIT",
   "keywords": [
+    "claude-code",
     "subagents",
     "model-routing",
+    "token-optimization",
+    "cost-optimization",
     "effort",
     "cost",
-    "tokens"
+    "tokens",
+    "haiku",
+    "sonnet",
+    "opus"
   ],
   "agents": [
     "./skills/efficient-claude/agents/scan.md",
