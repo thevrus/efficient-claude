@@ -2,6 +2,8 @@
 
 Get the best results from Claude Code while spending fewer tokens.
 
+efficient-claude is a model routing skill and Claude Code plugin. It sends each subagent task to the cheapest Claude model (Haiku, Sonnet, Opus or Fable) and effort level that can still do the job, so you cut token costs without lowering quality.
+
 When Claude Code hands work to a subagent, it uses your session's model by
 default, so a quick file search runs on the same expensive model as your
 hardest design question. This skill makes Claude pick the right model for each
@@ -52,6 +54,20 @@ The plugin also adds agents with their models pre-set: `model-router:scan`,
 `:build`, `:reason` and `:frontier-review`. Its hook stops any
 subagent call that names no model, so nothing slips through on the expensive
 default.
+
+## FAQ
+
+**How do I reduce Claude Code token costs?**
+
+Stop running subagents on your session's model. By default a subagent inherits it, so on an Opus session every file search is billed at Opus prices. This skill sends search and log reading to Haiku, bounded edits to Sonnet, and keeps Opus and Fable for the work that needs them.
+
+**Which Claude model should a subagent use?**
+
+Use the table above as the default: Haiku for search and summaries, Sonnet for edits with a clear spec, Opus for debugging and reviews, and Fable for work that must be right the first time. A task moves up a tier only when a cheaper model misses.
+
+**Does it work with Codex, Cursor or OpenCode?**
+
+Yes. The skill installs with `npx skills add` and works in Claude Code, Codex, Cursor, OpenCode and other agents. The plugin, with its routing agents and guard hook, is for Claude Code.
 
 ## Learn more
 
