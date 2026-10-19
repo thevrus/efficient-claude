@@ -1,13 +1,21 @@
 {
   "name": "model-router",
   "displayName": "Model Router",
-  "version": "1.3.0",
+  "version": "1.3.1",
   "description": "Routes each delegated task to the cheapest Claude model and effort that still does it right, and to Fable when the stakes demand it.",
-  "author": { "name": "thevrus", "url": "https://github.com/thevrus" },
-  "homepage": "https://github.com/thevrus/efficient-claude",
+  "author": {
+    "name": "thevrus",
+    "url": "https://github.com/thevrus"
+  },
   "repository": "https://github.com/thevrus/efficient-claude",
   "license": "MIT",
-  "keywords": ["subagents", "model-routing", "effort", "cost", "tokens"],
+  "keywords": [
+    "subagents",
+    "model-routing",
+    "effort",
+    "cost",
+    "tokens"
+  ],
   "agents": [
     "./skills/efficient-claude/agents/scan.md",
     "./skills/efficient-claude/agents/Explore.md",

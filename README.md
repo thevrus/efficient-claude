@@ -25,6 +25,8 @@ As a Claude Code plugin (skill, routing agents and a guard hook in one step):
 /plugin install model-router --marketplace thevrus/efficient-claude
 ```
 
+Plugin commands are prefixed: `/model-router:efficient-claude`.
+
 Or just the skill, in Claude Code, Codex, Cursor and other agents:
 
 ```bash
@@ -40,8 +42,7 @@ line:
 Routing to scan/haiku: pure grep across the repo, spec fully determines output.
 ```
 
-To apply it to a specific task, name it (`/model-router:efficient-claude`
-if you installed the plugin):
+To apply it to a specific task, name it:
 
 ```
 /efficient-claude refactor the auth module, use subagents for the search and the tests

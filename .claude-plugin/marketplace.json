@@ -9,7 +9,7 @@
     {
       "name": "model-router",
       "source": "./",
-      "description": "Routes each delegated task to the cheapest Claude model and effort that still does it right.",
+      "description": "Routes each delegated task to the cheapest Claude model and effort that still does it right, and to Fable when the stakes demand it.",
       "category": "productivity",
       "tags": [
         "subagents",
