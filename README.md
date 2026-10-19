@@ -1,118 +1,63 @@
 # efficient-claude
 
-An agent skill that routes every delegated task to the cheapest Claude model and effort level that can still do it right, and escalates only on evidence.
+Get the best results from Claude Code while spending fewer tokens.
 
-Default: Sonnet at medium for anything with a spec, Opus 5.5 at medium for anything without one. Scan work drops to Haiku. Fable is the frontier row only: after Opus at high fails twice, or for long unsupervised runs.
+When Claude Code hands work to a subagent, it uses your session's model by
+default, so a quick file search runs on the same expensive model as your
+hardest design question. This skill makes Claude pick the right model for each
+job:
 
-[![skills.sh](https://skills.sh/b/thevrus/efficient-claude)](https://skills.sh/thevrus/efficient-claude)
+| Job | Model | Effort |
+| --- | --- | --- |
+| Search, find files, read logs | Haiku | low |
+| Edits and tests from a clear plan | Sonnet | medium |
+| Debugging, refactors, reviews | Opus | medium |
+| Work that must be right the first time | Fable | low |
+
+It starts cheap and moves up only when a cheaper model actually misses. Before
+anything ships, a stronger model that never saw the work reviews it.
 
 ## Install
 
-```bash
-npx skills add thevrus/efficient-claude
+As a Claude Code plugin (skill, routing agents and a guard hook in one step):
+
+```
+/plugin install model-router --marketplace thevrus/efficient-claude
 ```
 
-Works with Claude Code, Codex, Cursor, OpenCode and every other agent the `skills` CLI supports. Add `-g` to install globally.
-
-## How it works
-
-Claude Code loads a skill's `SKILL.md` into context when its description matches what you asked for, or when you invoke it by name with `/efficient-claude`. Once loaded, it changes one decision the agent makes constantly: which `model` and `effort` to pass when it spawns a subagent with the `Agent` tool.
-
-Without the skill, an omitted `model` inherits the session model, so a Fable or Opus session runs every grep and every file rename on the most expensive model. With the skill:
-
-1. Every delegated task is classified into a tier: Scan, Build, Reason, Frontier, Fallback, Visual.
-2. The tier fixes the model and effort. Scan is `haiku` low, Build is `sonnet` medium, Reason is `opus` (5.5) medium, Frontier is `fable` low.
-3. The agent states the route in one line before dispatching, so you can audit it: "Routing to scan/haiku: pure grep, spec fully determines output."
-4. On a miss it escalates one dial at a time. Wrong despite having the files: move up one model tier. Skipped a file or did not run tests: raise effort one notch, keep the model. Never both at once.
-5. The prompt it writes for the subagent follows a handoff-packet template: objective, scope, evidence format, verification steps, stop conditions. A tight spec is what keeps a Sonnet task from needing Opus.
-
-The optional `agents/` definitions make the routing mechanical: each agent has `model` and `effort` pinned in its frontmatter, so `Agent(subagent_type: "scan")` is always Haiku at low effort regardless of the session model.
-
-## How to use it
-
-Install once:
+Or just the skill, in Claude Code, Codex, Cursor and other agents:
 
 ```bash
 npx skills add thevrus/efficient-claude -g
 ```
 
-Then work normally. The skill applies itself whenever Claude Code is about to delegate. To apply it explicitly to a task:
+## Use
+
+Work as usual. Before each subagent dispatch, Claude states the route in one
+line:
 
 ```
-/efficient-claude refactor the auth module, use subagents for the file scan and the tests
+Routing to scan/haiku: pure grep across the repo, spec fully determines output.
 ```
 
-What you should see: a one-line route per delegation, cheap models on lookups, Sonnet on spec-driven implementation, Opus 5.5 where judgment is needed, Fable only at the frontier, and an explicit reason each time it escalates.
+To apply it to a specific task, name it (`/model-router:efficient-claude`
+if you installed the plugin):
 
-For the mechanical version, copy the agent definitions and set the safety net:
-
-```bash
-cp -R ~/.claude/skills/efficient-claude/agents/* ~/.claude/agents/
+```
+/efficient-claude refactor the auth module, use subagents for the search and the tests
 ```
 
-In `~/.claude/settings.json`:
+The plugin also adds agents with their models pre-set: `model-router:scan`,
+`:build`, `:reason` and `:frontier-review`. Its hook stops any
+subagent call that names no model, so nothing slips through on the expensive
+default.
 
-```json
-{ "env": { "CLAUDE_CODE_SUBAGENT_MODEL": "sonnet" } }
-```
+## Learn more
 
-Now `scan`, `Explore`, `build`, `reason` and `frontier-review` show up as `subagent_type` options with their tier pre-set, and any subagent the skill did not route falls back to Sonnet instead of the session model.
+- [SKILL.md](skills/efficient-claude/SKILL.md): the full routing rules.
+- [rationale.md](skills/efficient-claude/references/rationale.md): prices,
+  benchmarks and sources behind the table, updated 19 October 2026.
 
-To make the rule a hard guarantee instead of advice, add the PreToolUse hook. It blocks any `Agent` call that neither passes `model` nor names one of the pinned agents, and tells Claude which model to pass:
+[![skills.sh](https://skills.sh/b/thevrus/efficient-claude)](https://skills.sh/thevrus/efficient-claude)
 
-```bash
-mkdir -p ~/.claude/hooks && cp hooks/require-model.py ~/.claude/hooks/
-```
-
-In `~/.claude/settings.json`:
-
-```json
-{
-  "hooks": {
-    "PreToolUse": [
-      { "matcher": "Agent", "hooks": [{ "type": "command", "command": "python3 ~/.claude/hooks/require-model.py" }] }
-    ]
-  }
-}
-```
-
-Session-level habits the skill also nudges: set `/model` and `/effort` once at session start (switching mid-session drops the prompt cache), `/clear` between unrelated tasks, `/rewind` instead of `/compact` to undo a bad turn.
-
-## What you get
-
-`skills/efficient-claude/SKILL.md` covers:
-
-- A routing table: Scan / Build / Reason / Frontier / Fallback / Visual tiers with the model, effort and `maxTurns` cap for each.
-- An escalation rule that moves one dial at a time: model when it did not know enough, effort when it did not try hard enough.
-- Frontier rules for Fable: the documented 50% weekly cap on Max and premium seats, usage-credits-only on Pro and standard seats, and when Opus 5.5 is the better buy.
-- Claude Code mechanics: model resolution order, aliases including `default` per plan, effort values, `Explore` override, `CLAUDE_CODE_SUBAGENT_MODEL` and `_FORCE`, useful agent frontmatter (`maxTurns`, `isolation`, `skills`, `tools`).
-- A stakes override: the cases that go straight to Fable (deliverables, no pattern to follow, unsupervised runs, coordination, security or money, "do it right"), and the tripwires that promote a task mid-flight.
-- A quality gate: every deliverable gets a read-only verdict pass one tier above the worker, by an agent that never saw the build.
-- Session hygiene, delegation rules (routing plan and fan-out cap, ledger for long runs), a handoff-packet template with a fixed return schema, a table of rationalizations to refuse, and a self-audit checklist.
-- `hooks/require-model.py`: a PreToolUse hook that refuses an `Agent` call with no explicit model.
-
-`skills/efficient-claude/references/rationale.md` holds the numbers behind the table, split into Anthropic-documented facts (with URLs) and third-party reports to re-verify after each model release. It is loaded only on demand.
-
-## Optional: pre-routed Claude Code agents
-
-`skills/efficient-claude/agents/` holds five agent definitions already pinned to the right tier:
-
-| Agent | Model | Effort | Use |
-| --- | --- | --- | --- |
-| `scan` | haiku | - (Haiku has no effort dial) | grep, inventory, find-where |
-| `Explore` | haiku | - | overrides the built-in Explore so it stops inheriting the session model |
-| `build` | sonnet | default | bounded edits from a clear spec |
-| `reason` | opus | medium | root cause, refactor design, tradeoffs |
-| `frontier-review` | fable | medium | final clean-context review before shipping risky changes |
-
-The `skills` CLI installs the skill only; it does not register agents. Copy them into `~/.claude/agents/` (global) or `.claude/agents/` (project) as shown above.
-
-## Why
-
-Effort moves cost more than model choice: Fable 5.1 spans roughly 11x output tokens from low to max, Opus about 8x, while model price gaps are 2.5-5x. Since Opus 5.5 (September 2026) matches Fable 5.1 on most work at 40% of the output price and is the default on every plan, the expensive mistake is no longer "used Fable by accident" but "ran everything at high". The skill encodes the measured routing so the agent starts at the floor.
-
-Model behavior shifts between releases. Keep a handful of personal tasks you know the answer to, re-run them when a model ships, and re-rank the table from that.
-
-## License
-
-MIT
+MIT license.

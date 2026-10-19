@@ -14,11 +14,14 @@ try:
 except Exception:
     sys.exit(0)
 
-if data.get("tool_name") != "Agent":
+if data.get("tool_name") not in ("Agent", "Task"):
     sys.exit(0)
 
 inp = data.get("tool_input") or {}
-if inp.get("model") or inp.get("subagent_type") in PINNED:
+# Plugin installs namespace agents as "model-router:scan".
+st = inp.get("subagent_type") or ""
+agent = st[len("model-router:"):] if st.startswith("model-router:") else st
+if inp.get("model") or agent in PINNED:
     sys.exit(0)
 
 sys.stderr.write(

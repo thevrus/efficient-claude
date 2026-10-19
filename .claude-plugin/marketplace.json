@@ -1,0 +1,21 @@
+{
+  "name": "thevrus-plugins",
+  "description": "Model and effort routing for Claude Code subagents",
+  "owner": {
+    "name": "thevrus",
+    "url": "https://github.com/thevrus"
+  },
+  "plugins": [
+    {
+      "name": "model-router",
+      "source": "./",
+      "description": "Routes each delegated task to the cheapest Claude model and effort that still does it right.",
+      "category": "productivity",
+      "tags": [
+        "subagents",
+        "model-routing",
+        "cost"
+      ]
+    }
+  ]
+}
