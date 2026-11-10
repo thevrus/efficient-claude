@@ -1,19 +1,34 @@
 # efficient-claude
 
-**Stop paying Opus prices for grep.** A Claude Code skill that sends each subagent task to the cheapest Claude model and effort that can still do it right.
+### Your Claude Code subagents are running on your most expensive model. Fix it in one command.
 
-Claude Code subagents inherit your session's model, so a file search costs the same as your hardest design question. This makes Claude pick per task, start cheap, and move up only when a cheaper model actually misses:
+Every file search, log read and grep your subagents do is billed at your session's model price. On Opus, that is the same rate as your hardest design question, spent on work a model 40x cheaper handles fine. It drains your usage limit and your token budget for nothing.
 
-| Job | Model | Effort |
-| --- | --- | --- |
-| Search, logs, summaries | Haiku | low |
-| Edits and tests from a clear plan | Sonnet | medium |
-| Debugging, refactors, reviews | Opus | medium |
-| Must be right the first time | Fable | medium |
+efficient-claude makes Claude pick the right model for every subagent task, automatically.
 
-Before anything ships, a stronger model that never saw the work reviews it.
+- **Cheaper:** search and logs go to Haiku, edits to Sonnet, Opus and Fable only where they earn it.
+- **Same quality:** it starts cheap, moves up one tier only when a cheaper model actually misses, and a stronger model that never saw the work reviews it before it ships.
+- **Zero effort:** no new workflow. Work as usual; Claude states each route in one line.
 
-## Savings
+```
+Routing to scan/haiku: pure grep across the repo, spec fully determines output.
+```
+
+## Install (30 seconds)
+
+```bash
+claude plugin install model-router --marketplace thevrus/efficient-claude
+```
+
+Needs Claude Code 2.1.292+. Adds the skill, routing agents, and a hook that blocks any subagent call with no model set, so nothing slips through on the expensive default.
+
+Codex, Cursor, OpenCode or other agents (skill only):
+
+```bash
+npx skills add thevrus/efficient-claude -g
+```
+
+## What you save
 
 One session, 10 subagent tasks, list prices (illustrative math on an assumed mix, [not a benchmark](docs/comparison.md)):
 
@@ -24,37 +39,24 @@ One session, 10 subagent tasks, list prices (illustrative math on an assumed mix
 | Debug unknown cause | 1 | $0.60 | $0.60 (Opus) |
 | **Total** | 10 | **$3.84** | **$1.19** (-69%) |
 
-The gap comes from search and log reading. Hard tasks cost the same either way.
+The hard task costs the same either way. The savings come from everything that never needed Opus.
 
-## Install
+## How it routes
 
-One command, in your terminal (Claude Code 2.1.292+):
+| Job | Model | Effort |
+| --- | --- | --- |
+| Search, logs, summaries | Haiku | low |
+| Edits and tests from a clear plan | Sonnet | medium |
+| Debugging, refactors, reviews | Opus | medium |
+| Must be right the first time | Fable | medium |
 
-```bash
-claude plugin install model-router --marketplace thevrus/efficient-claude
-```
+Anything touching security or money never routes below Opus. Updated for Fable 5.2.
 
-Or inside Claude Code: `/plugin install model-router --marketplace thevrus/efficient-claude`
+To route a specific task: `/efficient-claude refactor auth, use subagents for search and tests`
 
-You get the skill, routing agents, and a hook that blocks subagent calls with no model.
+Full rules: [SKILL.md](skills/efficient-claude/SKILL.md). Prices, benchmarks and sources: [rationale.md](skills/efficient-claude/references/rationale.md).
 
-Skill only, for Codex, Cursor, OpenCode and others:
-
-```bash
-npx skills add thevrus/efficient-claude -g
-```
-
-## Use
-
-Work as usual. Before each subagent call, Claude states the route:
-
-```
-Routing to scan/haiku: pure grep across the repo, spec fully determines output.
-```
-
-Or invoke it: `/efficient-claude refactor auth, use subagents for search and tests`
-
-Rules in [SKILL.md](skills/efficient-claude/SKILL.md); prices, benchmarks and sources in [rationale.md](skills/efficient-claude/references/rationale.md) (checked 10 Nov 2026, Fable 5.2).
+If it saves you tokens, a star helps others find it.
 
 [![skills.sh](https://skills.sh/b/thevrus/efficient-claude)](https://skills.sh/thevrus/efficient-claude)
 
