@@ -13,15 +13,32 @@ Claude Code subagents inherit your session's model, so a file search costs the s
 
 Before anything ships, a stronger model that never saw the work reviews it.
 
+## Savings
+
+One session, 10 subagent tasks, list prices (illustrative math on an assumed mix, [not a benchmark](docs/comparison.md)):
+
+| Task | Count | All on Opus | Routed |
+| --- | --- | --- | --- |
+| Search / logs | 6 | $2.16 | $0.05 (Haiku) |
+| Edits from a plan | 3 | $1.08 | $0.54 (Sonnet) |
+| Debug unknown cause | 1 | $0.60 | $0.60 (Opus) |
+| **Total** | 10 | **$3.84** | **$1.19** (-69%) |
+
+The gap comes from search and log reading. Hard tasks cost the same either way.
+
 ## Install
 
-Claude Code plugin (skill, routing agents, and a hook that blocks subagent calls with no model):
+One command, in your terminal (Claude Code 2.1.292+):
 
-```
-/plugin install model-router --marketplace thevrus/efficient-claude
+```bash
+claude plugin install model-router --marketplace thevrus/efficient-claude
 ```
 
-Skill only (Claude Code, Codex, Cursor, OpenCode):
+Or inside Claude Code: `/plugin install model-router --marketplace thevrus/efficient-claude`
+
+You get the skill, routing agents, and a hook that blocks subagent calls with no model.
+
+Skill only, for Codex, Cursor, OpenCode and others:
 
 ```bash
 npx skills add thevrus/efficient-claude -g
