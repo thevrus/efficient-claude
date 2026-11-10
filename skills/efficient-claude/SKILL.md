@@ -20,20 +20,21 @@ Rationale and the measurements behind the table live in
 [references/rationale.md](references/rationale.md). Load it only when someone
 asks why, or when re-ranking after a model release.
 
-## Routing table (Claude Code v2.1.303+, Opus 5.5 / Sonnet 5.5 / Haiku 5.5)
+## Routing table (Claude Code v2.1.321+, Fable 5.2 / Opus 5.5 / Sonnet 5.5 / Haiku 5.5)
 
 | Tier | `model` | Effort | `maxTurns` | Route here when |
 | --- | --- | --- | --- | --- |
 | Scan | `haiku` | low | 10 | Grep/search, file inventory, log and test-output reduction, "where is X defined", one-page summaries, formatting, renames. Outcome fully determined by the instruction and a mistake is cheap to spot. Keep the agent under 100K tokens of context: above that Haiku 5.5 costs 5x. |
 | Build | `sonnet` | medium | 40 | Bounded edits from a clear spec, tests from an existing pattern, data transforms, drafting from a template, browser flows with known steps. |
 | Reason | `opus` | medium | 40 | Ambiguous scope, multi-file refactor, root-cause debugging, code review with follow-up edits, reconciling conflicting reports, anything with security or money consequences. |
-| Frontier | `fable` | low, then medium | - | Any stakes-override case below (the deliverable itself, no pattern to follow, unsupervised runs with no verifier, coordination, security or money), or after `opus` at high hit the same problem twice. Never xhigh/max. |
+| Frontier | `fable` | medium (low for one-turn verdicts) | - | Any stakes-override case below (the deliverable itself, no pattern to follow, unsupervised runs with no verifier, coordination, security or money), or after `opus` at high hit the same problem twice. Never xhigh/max. |
 | Fallback | `sonnet` | high | 40 | "You've hit your Opus limit": Reason-tier work continues on Sonnet at high until the reset. |
 | Visual | (inherit) | default | 20 | Reading screenshots, charts, UI diffs, image-heavy pages. |
 
 On the Anthropic API `opus` is Opus 5.5, `sonnet` Sonnet 5.5, `haiku` Haiku
-5.5; all three default to medium effort (Opus 4.7 to xhigh, the rest to
-high). Three models cover a day: Haiku for lookups, Opus for the work you
+5.5; they and Fable 5.2 default to medium effort in Claude Code (Opus 4.7 to
+xhigh, the rest to high; the API default for Fable 5.2 is high, so set effort
+explicitly there). Three models cover a day: Haiku for lookups, Opus for the work you
 supervise, Fable for the rare task the others cannot finish.
 
 Defaults when unsure: `sonnet` medium for anything with a spec, `opus` medium
@@ -53,7 +54,7 @@ shifted down.
 
 ## Stakes override: go straight to Fable
 
-Skip the ladder and route to `fable` (low, medium for the final pass) when any
+Skip the ladder and route to `fable` (medium; low only for a one-turn verdict) when any
 of these hold. A retry here costs more than the model ever will.
 
 - **The output is the deliverable.** Production migration, public API or
@@ -88,7 +89,14 @@ Fable.
 
 ## Escalation rule
 
-Start low. Escalate only on a concrete miss, one dial at a time. After a miss
+Start low. Do the task inline when the brief would cost more than the work
+(a few lines, one file already in context); spawn only for an independent
+second view, three or more parallel branches, or a large mechanical batch.
+Delegation that makes the parent redo the work costs more than not delegating.
+With an automatic check, run low and re-run only failures at high.
+Escalate only on a concrete miss, one dial at a time, and only the parent
+escalates, never the subagent. Retry once with a sharper brief (the exact
+miss, the file, the check to pass) before moving a tier. After a miss
 ask, in order:
 
 1. **Could it check its own work?** No test, build, or script to run means
@@ -98,7 +106,8 @@ ask, in order:
    layer and stopped (updated the handler, not the caller). Raise effort one
    notch, keep the model.
 3. **Did it not know enough?** It had the files, clearly tried, and was still
-   confidently wrong. Move up one model tier.
+   confidently wrong. Move up one model tier, at the lower of medium or the
+   effort you used below (Anthropic: effort does not add knowledge).
 4. **Did it get worse with more effort, or game the check?** Over-optimization.
    Lower effort and sharpen the spec; do not escalate model.
 5. **Fix loop?** Rounds 1-3: resume the same worker with the findings. Round 4:
@@ -125,10 +134,14 @@ the point of the skill; the rationale file has the numbers.
 
 Fable has three jobs, and the price is different for each.
 
-- **Orchestrator (cheap).** A Fable session at low effort that reads, decides,
-  writes specs and verdicts, and delegates volume to the tiers below. Its
-  turns are mostly cache reads at $0.25/MTok; its output is short. This is
-  the default way to run a session when quality matters.
+- **Orchestrator (cheap).** A Fable session at medium effort that reads,
+  decides, writes specs and verdicts, and delegates volume to the tiers below.
+  Its turns are mostly cache reads at $0.20/MTok; its output is short. This is
+  the default way to run a session when quality matters. For long multistep or
+  unattended runs only (about +30% output tokens; skip it for one-turn
+  verdicts): Fable 5.2 can end turns early at low and medium, so the brief
+  says "do not stop while owed work remains; work through ordinary errors and
+  timeouts, stop only at a deliberate blocker or a risky action".
 - **Judge (cheap).** A read-only Fable pass over a cheaper worker's output
   before it ships: one verdict, the exact fixes, nothing else. Costs one
   context read and a few hundred output tokens. Use it on every deliverable
@@ -139,18 +152,18 @@ Fable has three jobs, and the price is different for each.
 
 Rules for all three:
 
-- Run Fable at **low effort** first; medium for a final review of a risky
-  change or a problem that survived low. `xhigh` and `max` overthink and cost
-  8-11x the tokens of low; use them only on a stuck problem with full
-  context, for one turn.
-- Fable 5.1 and the 5.5 models keep the prompt cache across effort changes on
-  an API key or subscription, so raise effort for one hard step and drop it again.
-- Plans: on Max, Team Premium and Enterprise premium seats, Fable draws from
-  the same weekly limit and may use at most 50% of it. On Pro, Team Standard
-  and Enterprise standard seats, Fable is not included at all and bills
-  usage credits from the first request. Claude Code asks before billing
-  credits in an interactive session; with `-p` or the Agent SDK it bills
-  without asking.
+- Run Fable at **medium**; **low** only for a one-turn verdict over a bounded
+  diff; **high** for long unattended runs (it finishes more, and costs more).
+  Anthropic's default is high and its low-effort scores held up on
+  well-specified tasks, not long ones. `xhigh` and `max` cost far more tokens
+  for uneven gains; use them only on a stuck problem with full context, for one
+  turn. Fable 5.2 at medium and above thinks before most replies, so
+  never send it trivial turns; "answer directly" lines do not stop it.
+- The 5.5 models (and Fable 5.1; 5.2 not yet confirmed) keep the prompt cache
+  across effort changes on an API key or subscription, so raise effort for one hard step and drop it again.
+- Plans: Max and premium seats draw Fable from the weekly limit (up to 50%);
+  Pro and standard seats bill usage credits from the first request, and `-p`
+  or the Agent SDK bills without asking. Detail in the rationale file.
 - Every Fable turn is a budgeted consult, not a chat: emit specs and
   verdicts, delegate volume. Budget it, do not avoid it. Skipping Fable on a
   task that needed it costs more than a week of routine Fable turns.
@@ -184,7 +197,7 @@ or debugging. The rules that change a dispatch:
 ## Session hygiene
 
 - Pick `/model` once; a model switch reads the whole conversation uncached.
-  Effort can move mid-session on the 5.5 models and Fable 5.1 without a
+  Effort can move mid-session on the 5.5 models and Fable 5.2 without a
   cache miss.
 - `/clear` between unrelated tasks. `/compact` costs about one request and
   pays back in about ten turns, so never right before finishing. Idle

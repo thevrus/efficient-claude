@@ -3,7 +3,7 @@
 Reference detail behind the core rules in SKILL.md: versions, settings, env
 vars and per-provider differences. Load it when configuring Claude Code,
 debugging why a dispatch ran on the wrong model, or chasing a cache miss.
-Checked 19 October 2026 against Claude Code v2.1.303.
+Checked 10 November 2026 against Claude Code v2.1.322.
 
 ## Claude Code mechanics
 
@@ -19,14 +19,14 @@ Checked 19 October 2026 against Claude Code v2.1.303.
   API, and on AWS, Bedrock and Vertex. Microsoft Foundry defaults to Sonnet
   4.5. "Inherit" is never the cheap option.
 - Aliases: `haiku`, `sonnet`, `opus` (Opus 5.5 from v2.1.280, Opus 5 before),
-  `fable` (Fable 5.1), `best` (Fable if available, else Opus), `opusplan`,
+  `fable` (Fable 5.2 from v2.1.321), `best` (Fable if available, else Opus), `opusplan`,
   `default`. Pin full IDs such as `claude-opus-5-5` only when reproducibility
   matters. Run `claude update` if `opus` still resolves to Opus 5.
 - Aliases resolve per provider. Bedrock and Vertex: `sonnet` is Sonnet 4.5,
   `haiku` Haiku 4.5. Foundry: `opus` is Opus 4.6, `sonnet` Sonnet 4.5,
   `haiku` Haiku 4.5. Claude Platform on AWS: `sonnet` is Sonnet 4.6. The
   Build and Fallback rows are a weaker model there; check before trusting them.
-- Effort values: `low`, `medium`, `high`, `xhigh`, `max` on Fable 5.1/5, Opus
+- Effort values: `low`, `medium`, `high`, `xhigh`, `max` on Fable 5.2/5.1/5, Opus
   5.5/5/4.8/4.7, Sonnet 5.5/5, Haiku 5.5. Opus 4.6 and Sonnet 4.6 take only
   low, medium, high, max; an unsupported level falls back to the highest
   supported one below it. Levels are calibrated per model, so `medium` on
@@ -83,7 +83,9 @@ Checked 19 October 2026 against Claude Code v2.1.303.
 ## Session hygiene
 
 - Pick `/model` once at session start; a model switch reads the whole
-  conversation uncached. Effort can move mid-session on Opus 5.5, Fable 5.1
+  conversation uncached, and Fable 5.2's thinking blocks are readable only by
+  Fable 5.2 and Mythos 5.2, so leaving Fable drops its reasoning. Effort can move
+  mid-session on Opus 5.5, Fable 5.1 (5.2 not yet confirmed)
   (v2.1.260+), Sonnet 5.5 and Haiku 5.5 without a cache miss (API key or
   subscription; not on Bedrock, Vertex, a gateway, or HIPAA orgs). On every
   other model an effort change is a cache miss.

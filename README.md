@@ -14,7 +14,7 @@ job:
 | Search, find files, read logs | Haiku | low |
 | Edits and tests from a clear plan | Sonnet | medium |
 | Debugging, refactors, reviews | Opus | medium |
-| Work that must be right the first time | Fable | low |
+| Work that must be right the first time | Fable | medium |
 
 It starts cheap and moves up only when a cheaper model actually misses. Before
 anything ships, a stronger model that never saw the work reviews it.
@@ -73,7 +73,7 @@ Yes. The skill installs with `npx skills add` and works in Claude Code, Codex, C
 
 - [SKILL.md](skills/efficient-claude/SKILL.md): the full routing rules.
 - [rationale.md](skills/efficient-claude/references/rationale.md): prices,
-  benchmarks and sources behind the table, updated 19 October 2026.
+  benchmarks and sources behind the table, updated 10 November 2026.
 
 [![skills.sh](https://skills.sh/b/thevrus/efficient-claude)](https://skills.sh/thevrus/efficient-claude)
 

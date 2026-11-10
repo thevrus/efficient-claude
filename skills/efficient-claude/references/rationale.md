@@ -1,31 +1,33 @@
 # Why the routing table looks like this
 
-Last checked: 19 October 2026 (Claude Code v2.1.303), after Sonnet 5.5 (28
-September) and Haiku 5.5 (7 October) shipped. Three kinds of evidence are
+Last checked: 10 November 2026 (Claude Code v2.1.322), after Fable 5.2 (9
+November), Sonnet 5.5 (28 September) and Haiku 5.5 (7 October) shipped. Three kinds of evidence are
 mixed here and labeled so you know which to trust after the next release.
 
 ## Documented by Anthropic
 
-- Pricing per MTok (input / output / cache read): Fable 5.1 $10 / $50 / $0.25;
+- Pricing per MTok (input / output / cache read): Fable 5.2 $8 / $40 / $0.20
+  (fast mode $16 / $80); Fable 5.1 $10 / $50 / $0.25;
   Opus 5.5 $4 / $20 / $0.20; Opus 5 $5 / $25 / $0.50 (legacy); Sonnet 5.5 $2 /
   $10 / $0.10 (cache read halved from $0.20 on 7 October 2026); Haiku 5.5 $0.10 /
   $0.50 / $0.01 up to 100K context, $0.50 / $2.50 / $0.05 above; Sonnet 5
   $2 / $10 / $0.20; Haiku 4.5 $1 / $5 / $0.10. Cache reads are 2.5% of input
-  on Fable 5.1, 5% on Opus 5.5 and Sonnet 5.5, 10% on the older models. Agent
+  on Fable 5.1 and 5.2, 5% on Opus 5.5 and Sonnet 5.5, 10% on the older models. Agent
   sessions are mostly cache reads, so a cached token on Sonnet 5.5 costs half
   what it does on Opus 5.5. Batch is 50% off. Haiku 5.5's 100K tier counts
   cache reads and writes toward prompt length; it is the only current model
   without flat 1M-context pricing.
   https://platform.claude.com/docs/en/about-claude/pricing
-- Opus 5.5, Sonnet 5.5 and Haiku 5.5 default to `medium` effort; Opus 4.7 to
-  `xhigh`; Fable 5.1 and the rest to `high`. Anthropic's model guide: "start
-  with Claude Opus 5.5 for most workloads. Use Claude Fable 5.1 for demanding
+- Opus 5.5, Sonnet 5.5, Haiku 5.5 and (in Claude Code) Fable 5.2 default to
+  `medium` effort in Claude Code; Opus 4.7 to `xhigh`; Fable 5.2 on the API and
+  the rest to `high`. Anthropic's model guide: "start
+  with Claude Opus 5.5 for most workloads. Use Claude Fable 5.1 [pre-5.2 wording; now Fable 5.2] for demanding
   reasoning and long-horizon agentic work, or when your evals on Claude Opus
   5.5 at higher effort still fall short."
   https://platform.claude.com/docs/en/about-claude/models/overview
 - Claude Code effort ladder as Anthropic states it: medium for well-scoped
   daily work, high when medium stalls, low for mechanical edits; "if high
-  hits the same problem twice, switch to Fable 5.1." Three models a day: a
+  hits the same problem twice, switch to Fable 5.1 [pre-5.2 wording]." Three models a day: a
   small one for lookups, Opus 5.5 for supervised work, Fable for the hardest.
   Keep code edits on Opus 5.5; send search and log reading down to Sonnet or
   Haiku. Effort math: high adds ~20K thinking tokens, about $0.40 on Opus
@@ -158,3 +160,29 @@ ships, run each at the tier the table prescribes and one tier below. Move the
 tier boundary only when the cheaper run fails the same way twice. Sonnet 5.5
 and Haiku 5.5 have shipped and are not yet re-ranked here; Sonnet 5.5 at
 high for read-only review is the first candidate to test.
+
+## Fable 5.2 (9 November 2026), documented, not yet re-ranked
+
+- Default effort `high`; Anthropic says start there, and that low/medium make
+  it more likely to end long multistep turns early (a "finish the work" prompt
+  halved unfinished sessions at about +30% output tokens). Low suits
+  well-specified tasks and fast subagents. "Answer directly" lines no longer
+  stop it thinking at medium and above. Subagents can be a large share of a
+  session's cost, so check the model they run on.
+  https://platform.claude.com/docs/en/build-with-claude/prompt-engineering/prompting-claude-fable-5-2
+- Thinking blocks are readable only by Fable 5.2 and Mythos 5.2; moving to any
+  other model drops them. API server-side fallback targets for 5.2 are Opus 4.8
+  and Opus 5 (Claude Code's `fable`/`best` fallback is a separate mechanism).
+- No Fable 5.2 vs Opus 5.5 benchmark found; the Reason-tier decision above
+  still rests on Fable 5.1 numbers. Re-test one task per tier before moving it.
+- Seen in other routers (READMEs only, unverified): hooks cannot see forks;
+  a stale "inherit" rule let Fable subagents reach 73% of subagent spend;
+  delegation can cost more than the parent working alone.
+- Addy Osmani, claude.dev, 9 Nov 2026: start on Opus 5.5 medium; Fable 5.2 at
+  medium then high for major refactors, architecture and leading many
+  subagents. Run low and re-run only failures at high: on a SWE-bench Pro
+  subset about 97% pass at ~$0.17/task vs 95.3% at ~$0.29 with all at high
+  (needs automatic checks). Escalate: verifier, then effort, then model at a
+  lower effort. Vendor-adjacent, one subset. Also: moving off Fable 5.2 loses
+  its reasoning, so defaulting to Fable makes later downgrades lossy.
+  https://claude.dev/blog/which-claude-model-should-you-build-with/
