@@ -1,3 +1,10 @@
+<p align="center">
+  <picture>
+    <source media="(prefers-color-scheme: dark)" srcset="assets/icon-dark.svg">
+    <img src="assets/icon.svg" alt="efficient-claude" width="72">
+  </picture>
+</p>
+
 # efficient-claude
 
 ### Your Claude Code subagents are running on your most expensive model. Fix it in one command.

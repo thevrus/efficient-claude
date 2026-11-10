@@ -1,0 +1,5 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="1280" height="640" viewBox="0 0 1280 640"><rect width="1280" height="640" fill="#16130F"/>
+<g transform="translate(150 190) scale(4.2)"><g transform="translate(0 2)"><path d="M12 16H52L32 48Z" stroke="#F4F1EA" stroke-width="8" stroke-linejoin="round" fill="#F4F1EA"/></g></g>
+<text x="470" y="300" font-family="-apple-system, 'Helvetica Neue', Arial, sans-serif" font-size="84" font-weight="600" fill="#F4F1EA">efficient-claude</text>
+<text x="472" y="372" font-family="-apple-system, 'Helvetica Neue', Arial, sans-serif" font-size="34" fill="#F4F1EA" fill-opacity=".72">Stop paying Opus prices for grep.</text>
+<text x="472" y="424" font-family="-apple-system, 'Helvetica Neue', Arial, sans-serif" font-size="34" fill="#F4F1EA" fill-opacity=".72">Route each Claude Code subagent to the cheapest model that works.</text></svg>
