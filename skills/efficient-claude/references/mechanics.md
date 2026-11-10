@@ -84,7 +84,10 @@ Checked 10 November 2026 against Claude Code v2.1.322.
 
 - Pick `/model` once at session start; a model switch reads the whole
   conversation uncached, and Fable 5.2's thinking blocks are readable only by
-  Fable 5.2 and Mythos 5.2, so leaving Fable drops its reasoning. Effort can move
+  Fable 5.2 and Mythos 5.2, so leaving Fable drops its reasoning. Fable 5.2 on the API defaults to `high`. For long unattended Fable runs
+  (about +30% output tokens) brief: "do not stop while owed work remains; work
+  through ordinary errors and timeouts, stop only at a deliberate blocker or a
+  risky action". Effort can move
   mid-session on Opus 5.5, Fable 5.1 (5.2 not yet confirmed)
   (v2.1.260+), Sonnet 5.5 and Haiku 5.5 without a cache miss (API key or
   subscription; not on Bedrock, Vertex, a gateway, or HIPAA orgs). On every

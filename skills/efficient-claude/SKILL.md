@@ -32,10 +32,10 @@ asks why, or when re-ranking after a model release.
 | Visual | (inherit) | default | 20 | Reading screenshots, charts, UI diffs, image-heavy pages. |
 
 On the Anthropic API `opus` is Opus 5.5, `sonnet` Sonnet 5.5, `haiku` Haiku
-5.5; they and Fable 5.2 default to medium effort in Claude Code (Opus 4.7 to
-xhigh, the rest to high; the API default for Fable 5.2 is high, so set effort
-explicitly there). Three models cover a day: Haiku for lookups, Opus for the work you
-supervise, Fable for the rare task the others cannot finish.
+5.5; they and Fable 5.2 default to medium effort in Claude Code (Opus 4.7
+xhigh, the rest high); API defaults differ, so set effort explicitly there.
+Three models cover a day: Haiku for lookups, Opus for the work you supervise,
+Fable for the rare task the others cannot finish.
 
 Defaults when unsure: `sonnet` medium for anything with a spec, `opus` medium
 for anything without one. "Execute this plan" goes to Build even when a bigger
@@ -89,15 +89,13 @@ Fable.
 
 ## Escalation rule
 
-Start low. Do the task inline when the brief would cost more than the work
-(a few lines, one file already in context); spawn only for an independent
-second view, three or more parallel branches, or a large mechanical batch.
-Delegation that makes the parent redo the work costs more than not delegating.
-With an automatic check, run low and re-run only failures at high.
-Escalate only on a concrete miss, one dial at a time, and only the parent
-escalates, never the subagent. Retry once with a sharper brief (the exact
-miss, the file, the check to pass) before moving a tier. After a miss
-ask, in order:
+Start low. Work inline when the brief costs more than the task (a few lines,
+one file in context); spawn only for an independent second view, three or more
+parallel branches, or a large mechanical batch. With an automatic check, run
+low and re-run only failures at high. Escalate only on a concrete miss, one
+dial at a time, and only the parent escalates. Retry once with a sharper brief
+(the exact miss, file and check) before moving a tier. After a miss ask, in
+order:
 
 1. **Could it check its own work?** No test, build, or script to run means
    the miss is a missing verifier, not a model problem. Add the check first.
@@ -137,11 +135,8 @@ Fable has three jobs, and the price is different for each.
 - **Orchestrator (cheap).** A Fable session at medium effort that reads,
   decides, writes specs and verdicts, and delegates volume to the tiers below.
   Its turns are mostly cache reads at $0.20/MTok; its output is short. This is
-  the default way to run a session when quality matters. For long multistep or
-  unattended runs only (about +30% output tokens; skip it for one-turn
-  verdicts): Fable 5.2 can end turns early at low and medium, so the brief
-  says "do not stop while owed work remains; work through ordinary errors and
-  timeouts, stop only at a deliberate blocker or a risky action".
+  the default way to run a session when quality matters. On long unattended
+  runs add the do-not-stop brief from `references/mechanics.md`.
 - **Judge (cheap).** A read-only Fable pass over a cheaper worker's output
   before it ships: one verdict, the exact fixes, nothing else. Costs one
   context read and a few hundred output tokens. Use it on every deliverable
@@ -154,16 +149,12 @@ Rules for all three:
 
 - Run Fable at **medium**; **low** only for a one-turn verdict over a bounded
   diff; **high** for long unattended runs (it finishes more, and costs more).
-  Anthropic's default is high and its low-effort scores held up on
-  well-specified tasks, not long ones. `xhigh` and `max` cost far more tokens
-  for uneven gains; use them only on a stuck problem with full context, for one
-  turn. Fable 5.2 at medium and above thinks before most replies, so
-  never send it trivial turns; "answer directly" lines do not stop it.
-- The 5.5 models (and Fable 5.1; 5.2 not yet confirmed) keep the prompt cache
-  across effort changes on an API key or subscription, so raise effort for one hard step and drop it again.
+  `xhigh` and `max` cost far more tokens for uneven gains; use them only on a
+  stuck problem with full context, for one turn. Fable thinks before most
+  replies, so never send it trivial turns.
 - Plans: Max and premium seats draw Fable from the weekly limit (up to 50%);
   Pro and standard seats bill usage credits from the first request, and `-p`
-  or the Agent SDK bills without asking. Detail in the rationale file.
+  or the Agent SDK bills without asking.
 - Every Fable turn is a budgeted consult, not a chat: emit specs and
   verdicts, delegate volume. Budget it, do not avoid it. Skipping Fable on a
   task that needed it costs more than a week of routine Fable turns.
@@ -197,8 +188,7 @@ or debugging. The rules that change a dispatch:
 ## Session hygiene
 
 - Pick `/model` once; a model switch reads the whole conversation uncached.
-  Effort can move mid-session on the 5.5 models and Fable 5.2 without a
-  cache miss.
+  Effort can move mid-session on the 5.5 models without a cache miss.
 - `/clear` between unrelated tasks. `/compact` costs about one request and
   pays back in about ten turns, so never right before finishing. Idle
   compaction handles long breaks on a subscription; on the API's five-minute
